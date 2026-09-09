@@ -1,321 +1,177 @@
+# =========================================================
+# SATQUERY-AI
+# MAIN APPLICATION
+# =========================================================
+
 import streamlit as st
+
 from PIL import Image
-import numpy as np
-import matplotlib.pyplot as plt
+
+from modules.query import (
+    understand_query,
+    get_intent_name
+)
+
+from modules.analysis import (
+    run_analysis,
+    create_overlay,
+    get_change_level
+)
+
+from modules.ui import (
+    apply_space_background
+)
 
 
-# ============================================================
-# PAGE CONFIGURATION
-# ============================================================
+# =========================================================
+# PAGE CONFIG
+# =========================================================
 
 st.set_page_config(
+
     page_title="SATQUERY AI",
+
     page_icon="🛰️",
+
     layout="wide"
 )
 
 
-# ============================================================
-# QUERY UNDERSTANDING
-# ============================================================
+# =========================================================
+# APPLY BACKGROUND
+# =========================================================
 
-def understand_query(query):
-    q = query.lower()
-
-    vegetation_words = [
-        "vegetation",
-        "greenery",
-        "forest",
-        "crop",
-        "plant",
-        "ndvi",
-        "green"
-    ]
-
-    water_words = [
-        "water",
-        "lake",
-        "river",
-        "pond",
-        "waterbody",
-        "water body"
-    ]
-
-    builtup_words = [
-        "building",
-        "built-up",
-        "built up",
-        "construction",
-        "urban",
-        "city",
-        "development"
-    ]
-
-    change_words = [
-        "change",
-        "changed",
-        "difference",
-        "compare",
-        "comparison"
-    ]
-
-    if any(word in q for word in vegetation_words):
-        return "Vegetation Analysis"
-
-    elif any(word in q for word in water_words):
-        return "Water-body Change Analysis"
-
-    elif any(word in q for word in builtup_words):
-        return "Built-up Area Analysis"
-
-    elif any(word in q for word in change_words):
-        return "Temporal Change Detection"
-
-    else:
-        return "General Remote Sensing Analysis"
+apply_space_background()
 
 
-# ============================================================
-# VEGETATION ANALYSIS
-# ============================================================
-
-def vegetation_analysis(image):
-
-    arr = np.array(image).astype(float)
-
-    r = arr[:, :, 0]
-    g = arr[:, :, 1]
-    b = arr[:, :, 2]
-
-    # RGB-based vegetation approximation
-    excess_green = (2 * g - r - b)
-
-    threshold = np.percentile(
-        excess_green,
-        65
-    )
-
-    mask = excess_green > threshold
-
-    return mask
-
-
-# ============================================================
-# WATER ANALYSIS
-# ============================================================
-
-def water_analysis(image):
-
-    arr = np.array(image).astype(float)
-
-    r = arr[:, :, 0]
-    g = arr[:, :, 1]
-    b = arr[:, :, 2]
-
-    # Simple RGB water approximation
-    water_score = b - r
-
-    threshold = np.percentile(
-        water_score,
-        70
-    )
-
-    mask = water_score > threshold
-
-    return mask
-
-
-# ============================================================
-# BUILT-UP ANALYSIS
-# ============================================================
-
-def builtup_analysis(image):
-
-    arr = np.array(image).astype(float)
-
-    r = arr[:, :, 0]
-    g = arr[:, :, 1]
-    b = arr[:, :, 2]
-
-    brightness = (
-        r + g + b
-    ) / 3
-
-    vegetation_signal = (
-        2 * g - r - b
-    )
-
-    brightness_threshold = np.percentile(
-        brightness,
-        35
-    )
-
-    vegetation_threshold = np.percentile(
-        vegetation_signal,
-        45
-    )
-
-    mask = (
-        (brightness > brightness_threshold)
-        &
-        (vegetation_signal < vegetation_threshold)
-    )
-
-    return mask
-
-
-# ============================================================
-# GENERAL CHANGE DETECTION
-# ============================================================
-
-def change_detection(before, after):
-
-    before_array = np.array(
-        before
-    ).astype(float)
-
-    after_array = np.array(
-        after
-    ).astype(float)
-
-    difference = np.abs(
-        before_array - after_array
-    )
-
-    change_score = np.mean(
-        difference,
-        axis=2
-    )
-
-    threshold = 30
-
-    mask = change_score > threshold
-
-    return mask, threshold
-
-
-# ============================================================
-# CHANGE LEVEL
-# ============================================================
-
-def get_change_level(percentage):
-
-    if percentage < 10:
-        return "Low Change"
-
-    elif percentage < 30:
-        return "Moderate Change"
-
-    elif percentage < 60:
-        return "High Change"
-
-    else:
-        return "Very High Change"
-
-
-# ============================================================
+# =========================================================
 # HEADER
-# ============================================================
+# =========================================================
 
-st.title("🛰️ SATQUERY AI")
-
-st.subheader(
-    "Interactive Vision-Language Assistant for "
-    "Remote Sensing Image Analysis"
+st.markdown(
+    """
+    <div class="main-title">
+        🛰️ SATQUERY AI
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-st.write(
-    "Ask questions about satellite imagery using "
-    "natural language."
+st.markdown(
+    """
+    <div class="subtitle">
+        Interactive Vision-Language Assistant
+        for Satellite Image Analysis
+    </div>
+    """,
+    unsafe_allow_html=True
 )
+
+st.write("")
 
 st.divider()
 
 
-# ============================================================
-# IMAGE UPLOAD
-# ============================================================
+# =========================================================
+# UPLOAD IMAGES
+# =========================================================
 
-st.subheader("🛰️ Upload Satellite Images")
+st.subheader(
+    "🛰️ Upload Satellite Images"
+)
 
 col1, col2 = st.columns(2)
 
 
 with col1:
 
-    st.markdown("### Before Image")
+    st.markdown(
+        "### Before Image"
+    )
 
     before_file = st.file_uploader(
+
         "Upload earlier satellite image",
+
         type=[
             "jpg",
             "jpeg",
             "png"
         ],
-        key="before"
+
+        key="before_upload"
     )
 
 
 with col2:
 
-    st.markdown("### After Image")
+    st.markdown(
+        "### After Image"
+    )
 
     after_file = st.file_uploader(
+
         "Upload later satellite image",
+
         type=[
             "jpg",
             "jpeg",
             "png"
         ],
-        key="after"
+
+        key="after_upload"
     )
 
 
-# ============================================================
-# QUERY INPUT
-# ============================================================
+# =========================================================
+# QUERY
+# =========================================================
 
 st.divider()
 
-st.subheader("💬 Ask SATQUERY")
+st.subheader(
+    "💬 Ask SATQUERY"
+)
+
+st.caption(
+    "Ask your question in English or Hinglish"
+)
+
 
 query = st.text_input(
+
     "Enter your query",
-    placeholder="Example: Show vegetation changes"
+
+    placeholder=(
+        "Example: Is area mein "
+        "vegetation badhi hai?"
+    ),
+
+    key="query_input"
 )
 
-
-st.markdown("**Try asking:**")
 
 st.caption(
-    "🌳 Show vegetation changes"
-)
-
-st.caption(
-    "💧 Show water-body changes"
-)
-
-st.caption(
-    "🏙️ Find newly built-up areas"
-)
-
-st.caption(
-    "🔄 Show major changes between the images"
+    "Examples: "
+    "Show vegetation increase • "
+    "Paani ka area kam hua hai? • "
+    "Yahan construction badha hai? • "
+    "Show major changes"
 )
 
 
-# ============================================================
+# =========================================================
 # ANALYZE BUTTON
-# ============================================================
+# =========================================================
 
 if st.button(
     "🔍 Analyze",
     use_container_width=True
 ):
 
-    # --------------------------------------------------------
+    # -----------------------------------------------------
     # VALIDATION
-    # --------------------------------------------------------
+    # -----------------------------------------------------
 
     if before_file is None:
 
@@ -344,33 +200,64 @@ if st.button(
         st.stop()
 
 
-    # --------------------------------------------------------
-    # LOAD IMAGES
-    # --------------------------------------------------------
+    # -----------------------------------------------------
+    # LOAD BEFORE IMAGE
+    # -----------------------------------------------------
 
     before = Image.open(
         before_file
     ).convert("RGB")
+
+
+    # -----------------------------------------------------
+    # LOAD AFTER IMAGE
+    # -----------------------------------------------------
 
     after = Image.open(
         after_file
     ).convert("RGB")
 
 
-    # Make image dimensions identical
+    # -----------------------------------------------------
+    # MATCH IMAGE SIZE
+    # -----------------------------------------------------
+
     after = after.resize(
-        before.size
+        before.size,
+        Image.Resampling.BILINEAR
     )
 
 
-    # --------------------------------------------------------
-    # QUERY UNDERSTANDING
-    # --------------------------------------------------------
+    # -----------------------------------------------------
+    # UNDERSTAND QUERY
+    # -----------------------------------------------------
 
     intent = understand_query(
         query
     )
 
+
+    # -----------------------------------------------------
+    # RUN ANALYSIS
+    # -----------------------------------------------------
+
+    with st.spinner(
+        "🛰️ SATQUERY is analysing the images..."
+    ):
+
+        result = run_analysis(
+
+            before,
+
+            after,
+
+            intent
+        )
+
+
+    # =====================================================
+    # QUERY UNDERSTANDING
+    # =====================================================
 
     st.divider()
 
@@ -378,286 +265,130 @@ if st.button(
         "🧠 Query Understanding"
     )
 
-
-    q1, q2 = st.columns(2)
-
-
-    with q1:
-
-        st.metric(
-            "Detected Intent",
-            intent
-        )
-
-
-    with q2:
-
-        st.metric(
-            "Input Type",
-            "Bi-temporal Images"
-        )
-
-
     st.info(
-        f"SATQUERY interpreted your query as "
-        f"**{intent}**."
+        f"**Detected analysis:** "
+        f"{get_intent_name(intent)}"
+    )
+
+    st.write(
+        f"**User query:** {query}"
     )
 
 
-    # --------------------------------------------------------
-    # SELECT ANALYSIS
-    # --------------------------------------------------------
+    # =====================================================
+    # CHANGE DETECTION RESULT
+    # =====================================================
 
-    if intent == "Vegetation Analysis":
+    st.divider()
 
-        before_mask = vegetation_analysis(
-            before
-        )
+    st.subheader(
+        "🗺️ Change Detection Result"
+    )
 
-        after_mask = vegetation_analysis(
-            after
-        )
 
-        changed_mask = (
-            before_mask != after_mask
-        )
+    col1, col2, col3 = st.columns(3)
 
-        result_title = (
-            "🌳 Vegetation Change Analysis"
-        )
 
-        explanation = (
-            "SATQUERY detected vegetation-related "
-            "regions using an RGB-based vegetation "
-            "signal. The highlighted areas indicate "
-            "where the vegetation signal differs "
-            "between the two observations."
-        )
+    with col1:
 
-        threshold_value = (
-            "65th percentile"
+        st.image(
+
+            before,
+
+            caption="Before",
+
+            use_container_width=True
+
         )
 
 
-    elif intent == "Water-body Change Analysis":
+    with col2:
 
-        before_mask = water_analysis(
-            before
-        )
+        st.image(
 
-        after_mask = water_analysis(
-            after
-        )
+            after,
 
-        changed_mask = (
-            before_mask != after_mask
-        )
+            caption="After",
 
-        result_title = (
-            "💧 Water-body Change Analysis"
-        )
+            use_container_width=True
 
-        explanation = (
-            "SATQUERY identified likely water regions "
-            "using RGB spectral relationships. "
-            "Highlighted areas represent changes "
-            "in the detected water signal."
-        )
-
-        threshold_value = (
-            "70th percentile"
         )
 
 
-    elif intent == "Built-up Area Analysis":
+    with col3:
 
-        before_mask = builtup_analysis(
-            before
+        overlay_image = create_overlay(
+
+            after,
+
+            result["mask"],
+
+            result["color"]
+
         )
 
-        after_mask = builtup_analysis(
-            after
+        st.image(
+
+            overlay_image,
+
+            caption=result["name"],
+
+            use_container_width=True
+
         )
 
-        changed_mask = (
-            before_mask != after_mask
+
+    # =====================================================
+    # LEGEND
+    # =====================================================
+
+    st.markdown(
+        "### 🗺️ Map Legend"
+    )
+
+
+    if intent == "vegetation_increase":
+
+        st.success(
+            "🟢 Green = Candidate vegetation increase"
         )
 
-        result_title = (
-            "🏙️ Built-up Area Change Analysis"
+
+    elif intent == "vegetation_decrease":
+
+        st.warning(
+            "🟠 Orange = Candidate vegetation decrease"
         )
 
-        explanation = (
-            "SATQUERY identified likely built-up "
-            "surfaces using brightness and vegetation "
-            "signal characteristics. Highlighted "
-            "regions indicate areas where this signal "
-            "changed."
+
+    elif intent in [
+        "water_change",
+        "water_decrease"
+    ]:
+
+        st.info(
+            "🔵 Blue = Candidate water-related change"
         )
 
-        threshold_value = (
-            "Adaptive percentile"
+
+    elif intent == "construction_increase":
+
+        st.error(
+            "🔴 Red = Candidate built-up/"
+            "construction change"
         )
 
 
     else:
 
-        changed_mask, threshold = change_detection(
-            before,
-            after
-        )
-
-        result_title = (
-            "🔄 Temporal Change Detection"
-        )
-
-        explanation = (
-            "SATQUERY compared the Before and After "
-            "images pixel-by-pixel and identified "
-            "regions with significant visual "
-            "differences."
-        )
-
-        threshold_value = str(
-            threshold
+        st.error(
+            "🔴 Red = Strong RGB temporal difference"
         )
 
 
-    # ========================================================
-    # RESULTS
-    # ========================================================
-
-    st.divider()
-
-    st.subheader(
-        result_title
-    )
-
-
-    c1, c2, c3 = st.columns(3)
-
-
-    # --------------------------------------------------------
-    # BEFORE
-    # --------------------------------------------------------
-
-    with c1:
-
-        st.image(
-            before,
-            caption="Before",
-            use_container_width=True
-        )
-
-
-    # --------------------------------------------------------
-    # AFTER
-    # --------------------------------------------------------
-
-    with c2:
-
-        st.image(
-            after,
-            caption="After",
-            use_container_width=True
-        )
-
-
-    # --------------------------------------------------------
-    # CHANGE OVERLAY
-    # --------------------------------------------------------
-
-    with c3:
-
-        after_array = np.array(
-            after
-        ).copy()
-
-
-        # Slightly darken the image
-        overlay = (
-            after_array.astype(float)
-            * 0.70
-        )
-
-        overlay = np.clip(
-            overlay,
-            0,
-            255
-        ).astype(np.uint8)
-
-
-        # Highlight detected changes
-        overlay[changed_mask] = [
-            255,
-            0,
-            0
-        ]
-
-
-        fig, ax = plt.subplots(
-            figsize=(5, 4)
-        )
-
-
-        ax.imshow(
-            overlay
-        )
-
-
-        ax.set_title(
-            "Detected Changes"
-        )
-
-
-        ax.axis("off")
-
-
-        st.pyplot(
-            fig,
-            use_container_width=True
-        )
-
-
-        plt.close(fig)
-
-
-    # ========================================================
-    # LEGEND
-    # ========================================================
-
-    st.markdown(
-        """
-        **Map Legend**
-
-        🔴 **Red = Detected change**
-
-        ⚪ **Normal area = No significant detected change**
-        """
-    )
-
-
-    # ========================================================
-    # STATISTICS
-    # ========================================================
-
-    total_pixels = changed_mask.size
-
-    changed_pixels = np.sum(
-        changed_mask
-    )
-
-
-    changed_percentage = (
-        changed_pixels
-        / total_pixels
-    ) * 100
-
-
-    change_level = get_change_level(
-        changed_percentage
-    )
-
+    # =====================================================
+    # ANALYSIS SUMMARY
+    # =====================================================
 
     st.divider()
 
@@ -673,7 +404,7 @@ if st.button(
 
         st.metric(
             "Changed Area",
-            f"{changed_percentage:.2f}%"
+            f"{result['pct']:.2f}%"
         )
 
 
@@ -681,7 +412,7 @@ if st.button(
 
         st.metric(
             "Pixels Analysed",
-            f"{total_pixels:,}"
+            f"{result['total']:,}"
         )
 
 
@@ -689,47 +420,51 @@ if st.button(
 
         st.metric(
             "Change Level",
-            change_level
+            get_change_level(
+                result["pct"]
+            )
         )
 
 
     with s4:
 
         st.metric(
-            "Threshold",
-            threshold_value
+            "Adaptive Threshold",
+            f"{result['threshold']:.3f}"
         )
 
 
-    # ========================================================
-    # QUERY RESULT
-    # ========================================================
+    # =====================================================
+    # EXPLANATION
+    # =====================================================
 
     st.divider()
 
     st.subheader(
-        "🔎 SATQUERY Explanation"
+        "🤖 SATQUERY Explanation"
     )
-
 
     st.write(
-        explanation
+        result["explanation"]
     )
 
 
-    st.info(
-        f"**Query:** {query}"
+    # =====================================================
+    # LIMITATIONS
+    # =====================================================
+
+    st.divider()
+
+    st.subheader(
+        "⚠️ Prototype Limitations"
     )
-
-
-    # ========================================================
-    # PROTOTYPE DISCLAIMER
-    # ========================================================
 
     st.caption(
-        "Prototype limitation: This version uses "
-        "RGB imagery and lightweight computer-vision "
-        "methods. True multispectral NDVI, SAR fusion, "
-        "geospatial alignment and advanced vision-language "
-        "models are planned for subsequent versions."
+        "This prototype uses RGB computer vision. "
+        "Reliable satellite change detection should use "
+        "geospatial alignment, multispectral bands/NDVI, "
+        "cloud masking, SAR where appropriate, and "
+        "land-cover/building segmentation. "
+        "Highlighted regions are candidate changes, "
+        "not confirmed construction."
     )
