@@ -1,477 +1,306 @@
 import streamlit as st
-from PIL import Image
+import base64
+import os
 
-from modules.query import understand_query, get_intent_name
-from modules.analysis import (
-    run_analysis,
-    create_overlay,
-    get_change_level
-)
-from modules.ui import apply_space_background
-
-
-# =========================================================
+# ---------------------------------------------------------
 # PAGE CONFIG
-# =========================================================
-
+# ---------------------------------------------------------
 st.set_page_config(
-    page_title="SATQUERY AI",
+    page_title="SATQUERY-AI",
     page_icon="🛰️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
 
-# =========================================================
-# APPLY SPACE BACKGROUND + CSS
-# =========================================================
+# ---------------------------------------------------------
+# HELPER: Load background image as base64 (safe fallback)
+# ---------------------------------------------------------
+def get_base64_background(image_path: str):
+    if not os.path.exists(image_path):
+        return None
+    with open(image_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode("utf-8")
 
-apply_space_background()
+
+BG_PATH = os.path.join("assets", "background.png")
+bg_base64 = get_base64_background(BG_PATH)
+
+if bg_base64:
+    bg_css = f"""
+    background-image:
+        linear-gradient(180deg, rgba(4,10,14,0.85) 0%, rgba(4,10,14,0.92) 100%),
+        url("data:image/png;base64,{bg_base64}");
+    """
+else:
+    bg_css = """
+    background: radial-gradient(circle at 20% 20%, #062226 0%, #020a0c 70%);
+    """
 
 
-# =========================================================
-# HEADER
-# =========================================================
-
-st.title("🛰️ SATQUERY AI")
-
+# ---------------------------------------------------------
+# GLOBAL CSS — DARK CYAN / GLASSMORPHISM THEME
+# ---------------------------------------------------------
 st.markdown(
-    "**Interactive Vision-Language Assistant for "
-    "Multimodal Remote Sensing Analysis**"
+    f"""
+    <style>
+
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+
+    html, body, [class*="css"] {{
+        font-family: 'Segoe UI', 'Inter', sans-serif;
+    }}
+
+    .stApp {{
+        {bg_css}
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        color: #e6fbff;
+    }}
+
+    .block-container {{
+        padding-top: 2.5rem;
+        padding-bottom: 3rem;
+        max-width: 1100px;
+    }}
+
+    /* ---------- HEADER ---------- */
+    .satq-header {{
+        text-align: center;
+        margin-bottom: 0.2rem;
+    }}
+
+    .satq-logo {{
+        font-size: 3rem;
+        font-weight: 800;
+        letter-spacing: 4px;
+        background: linear-gradient(90deg, #00f5d4, #00b4d8, #48cae4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 25px rgba(0, 245, 212, 0.25);
+    }}
+
+    .satq-subtitle {{
+        font-size: 1rem;
+        letter-spacing: 3px;
+        color: #7fd8e8;
+        text-transform: uppercase;
+        margin-top: -8px;
+        font-weight: 400;
+    }}
+
+    /* ---------- HERO ---------- */
+    .satq-hero {{
+        text-align: center;
+        margin-top: 2.2rem;
+        margin-bottom: 2.4rem;
+    }}
+
+    .satq-hero-tag {{
+        font-size: 0.85rem;
+        letter-spacing: 4px;
+        color: #4dd0e1;
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+        font-weight: 600;
+    }}
+
+    .satq-hero-title {{
+        font-size: 2.6rem;
+        font-weight: 700;
+        color: #f0fdff;
+        line-height: 1.2;
+        text-shadow: 0 0 30px rgba(0, 180, 216, 0.35);
+    }}
+
+    /* ---------- GLASS CARD ---------- */
+    .glass-card {{
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(0, 245, 212, 0.18);
+        border-radius: 18px;
+        padding: 1.8rem 2rem;
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        margin-bottom: 1.6rem;
+    }}
+
+    .glass-card h4 {{
+        color: #7fe9f5;
+        font-weight: 600;
+        letter-spacing: 1px;
+        margin-bottom: 0.8rem;
+    }}
+
+    /* ---------- FILE UPLOAD LABELS ---------- */
+    .upload-label {{
+        color: #8fe4f0;
+        font-weight: 600;
+        letter-spacing: 1px;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+    }}
+
+    /* ---------- TEXT INPUT ---------- */
+    .stTextArea textarea, .stTextInput input {{
+        background-color: rgba(255,255,255,0.04) !important;
+        color: #e6fbff !important;
+        border: 1px solid rgba(0, 245, 212, 0.25) !important;
+        border-radius: 12px !important;
+    }}
+
+    /* ---------- FILE UPLOADER ---------- */
+    [data-testid="stFileUploader"] {{
+        background: rgba(255,255,255,0.03);
+        border: 1px dashed rgba(0, 245, 212, 0.3);
+        border-radius: 14px;
+        padding: 0.6rem;
+    }}
+
+    /* ---------- BUTTON ---------- */
+    div.stButton > button {{
+        width: 100%;
+        background: linear-gradient(90deg, #00b4d8, #00f5d4);
+        color: #002022;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        border: none;
+        border-radius: 12px;
+        padding: 0.9rem 1.2rem;
+        font-size: 1.05rem;
+        margin-top: 0.6rem;
+        box-shadow: 0 0 25px rgba(0, 245, 212, 0.25);
+        transition: all 0.2s ease-in-out;
+    }}
+
+    div.stButton > button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 0 35px rgba(0, 245, 212, 0.45);
+        color: #001416;
+    }}
+
+    /* ---------- FOOTER NOTE ---------- */
+    .satq-footnote {{
+        text-align: center;
+        color: #4a7f8a;
+        font-size: 0.8rem;
+        margin-top: 1.5rem;
+        letter-spacing: 1px;
+    }}
+
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.caption("● AI ANALYSIS SYSTEM ONLINE")
 
-
-# =========================================================
-# SATELLITE IMAGE ANALYSIS
-# =========================================================
-
-st.divider()
-
-st.header("🛰️ Satellite Image Analysis")
-
-st.write(
-    "Upload two temporal images of the same area "
-    "to identify candidate changes."
+# ---------------------------------------------------------
+# HEADER
+# ---------------------------------------------------------
+st.markdown(
+    """
+    <div class="satq-header">
+        <div class="satq-logo">SATQUERY-AI</div>
+        <div class="satq-subtitle">Remote Sensing Intelligence</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
-# =========================================================
-# IMAGE UPLOAD
-# =========================================================
+# ---------------------------------------------------------
+# HERO
+# ---------------------------------------------------------
+st.markdown(
+    """
+    <div class="satq-hero">
+        <div class="satq-hero-tag">Multimodal Remote Sensing • AI Analysis</div>
+        <div class="satq-hero-title">Ask your Satellite.</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-col1, col2 = st.columns(2, gap="large")
 
+# ---------------------------------------------------------
+# QUERY INPUT CARD
+# ---------------------------------------------------------
+st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+st.markdown("#### 🛰️ Natural Language Query")
+query = st.text_area(
+    label="query_input",
+    label_visibility="collapsed",
+    placeholder="e.g. Analyse vegetation loss between the two images...",
+    height=90,
+)
+st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------
+# IMAGE UPLOAD CARD
+# ---------------------------------------------------------
+st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+st.markdown("#### 🖼️ Satellite Imagery Input")
+
+col1, col2 = st.columns(2)
 
 with col1:
-
-    st.subheader("🕐 Before Image")
-
+    st.markdown('<div class="upload-label">Before Image (Earlier Date)</div>', unsafe_allow_html=True)
     before_file = st.file_uploader(
-        "Upload earlier satellite image",
-        type=["jpg", "jpeg", "png"],
-        key="before_upload"
+        "before_uploader",
+        type=["png", "jpg", "jpeg", "tif", "tiff"],
+        label_visibility="collapsed",
+        key="before_uploader",
     )
-
     if before_file is not None:
-
-        before_preview = Image.open(
-            before_file
-        ).convert("RGB")
-
-        st.image(
-            before_preview,
-            caption="Earlier Image",
-            use_container_width=True
-        )
-
+        st.image(before_file, use_container_width=True, caption="Before Image Preview")
 
 with col2:
-
-    st.subheader("🕐 After Image")
-
+    st.markdown('<div class="upload-label">After Image (Later Date)</div>', unsafe_allow_html=True)
     after_file = st.file_uploader(
-        "Upload later satellite image",
-        type=["jpg", "jpeg", "png"],
-        key="after_upload"
+        "after_uploader",
+        type=["png", "jpg", "jpeg", "tif", "tiff"],
+        label_visibility="collapsed",
+        key="after_uploader",
     )
-
     if after_file is not None:
+        st.image(after_file, use_container_width=True, caption="After Image Preview")
 
-        after_preview = Image.open(
-            after_file
-        ).convert("RGB")
+st.markdown('</div>', unsafe_allow_html=True)
 
-        st.image(
-            after_preview,
-            caption="Later Image",
-            use_container_width=True
-        )
 
+# ---------------------------------------------------------
+# ANALYSE BUTTON
+# ---------------------------------------------------------
+analyse_clicked = st.button("ANALYSE SATELLITE IMAGERY →")
 
-# =========================================================
-# QUERY SECTION
-# =========================================================
-
-st.divider()
-
-st.header("💬 Ask SATQUERY")
-
-st.write(
-    "Ask your question naturally in English or Hinglish."
-)
-
-
-query = st.text_input(
-    "Natural Language Query",
-    placeholder="Example: Is area mein vegetation badhi hai?",
-    key="query_input"
-)
-
-
-st.caption(
-    "Try: Show vegetation increase • "
-    "Paani ka area kam hua hai? • "
-    "Yahan construction badha hai? • "
-    "Show major changes"
-)
-
-
-# =========================================================
-# ANALYZE BUTTON
-# =========================================================
-
-if st.button(
-    "🔍 ANALYZE SATELLITE DATA",
-    use_container_width=True
-):
-
-    # -----------------------------------------------------
-    # VALIDATION
-    # -----------------------------------------------------
-
-    if before_file is None:
-
-        st.warning(
-            "⚠️ Please upload the Before image."
-        )
-
-        st.stop()
-
-
-    if after_file is None:
-
-        st.warning(
-            "⚠️ Please upload the After image."
-        )
-
-        st.stop()
-
-
-    if not query.strip():
-
-        st.warning(
-            "⚠️ Please enter a natural-language query."
-        )
-
-        st.stop()
-
-
-    # -----------------------------------------------------
-    # LOAD IMAGES
-    # -----------------------------------------------------
-
-    before = Image.open(
-        before_file
-    ).convert("RGB")
-
-    after = Image.open(
-        after_file
-    ).convert("RGB")
-
-
-    # -----------------------------------------------------
-    # IMAGE SIZE ALIGNMENT
-    # -----------------------------------------------------
-
-    if after.size != before.size:
-
-        after = after.resize(
-            before.size,
-            Image.Resampling.BILINEAR
-        )
-
-
-    # -----------------------------------------------------
-    # QUERY UNDERSTANDING
-    # -----------------------------------------------------
-
-    intent = understand_query(query)
-
-
-    # -----------------------------------------------------
-    # RUN ANALYSIS
-    # -----------------------------------------------------
-
-    with st.spinner(
-        "🛰️ SATQUERY is analysing the satellite images..."
-    ):
-
-        result = run_analysis(
-            before,
-            after,
-            intent
-        )
-
-
-    # =====================================================
-    # QUERY UNDERSTANDING RESULT
-    # =====================================================
-
-    st.divider()
-
-    st.header("🧠 Query Understanding")
-
-    st.info(
-        f"**Detected Analysis:** "
-        f"{get_intent_name(intent)}"
-    )
-
-    st.write(
-        f"**User Query:** {query}"
-    )
-
-
-    # =====================================================
-    # CHANGE DETECTION RESULT
-    # =====================================================
-
-    st.divider()
-
-    st.header("🗺️ Change Detection Result")
-
-
-    # -----------------------------------------------------
-    # CREATE RESULT OVERLAY
-    # -----------------------------------------------------
-
-    overlay_image = create_overlay(
-        after,
-        result["mask"],
-        result["color"]
-    )
-
-
-    # -----------------------------------------------------
-    # DISPLAY IMAGES
-    # -----------------------------------------------------
-
-    result_col1, result_col2, result_col3 = st.columns(
-        3,
-        gap="medium"
-    )
-
-
-    with result_col1:
-
-        st.subheader("🕐 Before")
-
-        st.image(
-            before,
-            use_container_width=True
-        )
-
-
-    with result_col2:
-
-        st.subheader("🕐 After")
-
-        st.image(
-            after,
-            use_container_width=True
-        )
-
-
-    with result_col3:
-
-        st.subheader("🧠 SATQUERY Result")
-
-        st.image(
-            overlay_image,
-            caption=result["name"],
-            use_container_width=True
-        )
-
-
-    # =====================================================
-    # MAP LEGEND
-    # =====================================================
-
-    st.subheader("🗺️ Map Legend")
-
-
-    if intent == "vegetation_increase":
-
-        st.success(
-            "🟢 Green = Candidate vegetation increase"
-        )
-
-
-    elif intent == "vegetation_decrease":
-
-        st.warning(
-            "🟠 Orange = Candidate vegetation decrease"
-        )
-
-
-    elif intent in [
-        "water_change",
-        "water_decrease"
-    ]:
-
-        st.info(
-            "🔵 Blue = Candidate water-related change"
-        )
-
-
-    elif intent == "construction_increase":
-
-        st.error(
-            "🔴 Red = Candidate built-up/construction change"
-        )
-
-
+if analyse_clicked:
+    if not query or not query.strip():
+        st.warning("⚠️ Please enter a natural-language query before analysis.")
+    elif before_file is None or after_file is None:
+        st.warning("⚠️ Please upload both the Before and After satellite images.")
     else:
-
-        st.error(
-            "🔴 Red = Strong RGB temporal difference"
-        )
-
-
-    # =====================================================
-    # ANALYSIS SUMMARY
-    # =====================================================
-
-    st.divider()
-
-    st.header("📊 Analysis Summary")
+        st.session_state["satquery_data"] = {
+            "query": query.strip(),
+            "before_bytes": before_file.getvalue(),
+            "after_bytes": after_file.getvalue(),
+        }
+        st.switch_page("pages/analysis.py")
 
 
-    s1, s2, s3, s4 = st.columns(4)
-
-
-    with s1:
-
-        st.metric(
-            "Changed Area",
-            f"{result['pct']:.2f}%"
-        )
-
-
-    with s2:
-
-        st.metric(
-            "Pixels Analysed",
-            f"{result['total']:,}"
-        )
-
-
-    with s3:
-
-        st.metric(
-            "Change Level",
-            get_change_level(
-                result["pct"]
-            )
-        )
-
-
-    with s4:
-
-        st.metric(
-            "Adaptive Threshold",
-            f"{result['threshold']:.3f}"
-        )
-
-
-    # =====================================================
-    # EXPLANATION
-    # =====================================================
-
-    st.divider()
-
-    st.header("🤖 SATQUERY Explanation")
-
-    st.write(
-        result["explanation"]
-    )
-
-
-    # =====================================================
-    # EVIDENCE
-    # =====================================================
-
-    st.divider()
-
-    st.header("🔎 Evidence")
-
-
-    evidence_col1, evidence_col2 = st.columns(2)
-
-
-    with evidence_col1:
-
-        st.metric(
-            "Detected Region",
-            f"{result['pct']:.2f}%"
-        )
-
-        st.caption(
-            "Percentage of analysed pixels flagged "
-            "as candidate change."
-        )
-
-
-    with evidence_col2:
-
-        st.metric(
-            "Change Assessment",
-            get_change_level(
-                result["pct"]
-            )
-        )
-
-        st.caption(
-            "Based on the detected change extent."
-        )
-
-
-    # =====================================================
-    # PROTOTYPE LIMITATIONS
-    # =====================================================
-
-    st.divider()
-
-    st.header("⚠️ Prototype Notes")
-
-    st.caption(
-        "This prototype currently uses RGB computer vision. "
-        "For reliable satellite change detection, the final "
-        "system should incorporate geospatial alignment, "
-        "multispectral bands/NDVI, cloud masking, SAR where "
-        "appropriate, and land-cover/building segmentation. "
-        "Highlighted regions represent candidate changes, "
-        "not confirmed construction."
-    )
-
-
-# =========================================================
-# FOOTER
-# =========================================================
-
-st.divider()
-
-st.caption(
-    "🛰️ SATQUERY AI  •  Remote Sensing Intelligence  •  SIH 2026"
+# ---------------------------------------------------------
+# FOOTNOTE
+# ---------------------------------------------------------
+st.markdown(
+    """
+    <div class="satq-footnote">
+        SATQUERY-AI Prototype • Smart India Hackathon • RGB-based Temporal Change Detection
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
